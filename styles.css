@@ -6,3 +6,11 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.input {
+	border: 2px solid #4CAF50;
+	color: red !important;
+	padding: 10px;
+	font-size: 16px;
+	border-radius: 4px;
+}
