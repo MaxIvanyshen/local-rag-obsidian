@@ -43,6 +43,41 @@ export default class LocalRag extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'remove-indexed-document',
+			name: 'Remove Indexed Document',
+			checkCallback: (checking: boolean) => {
+				// remove the current document from the index
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					if (!checking) {
+						const fileName = markdownView.file.path;
+						this.removeIndexedDocument(fileName);
+					}
+					return true;
+				}
+				return false;
+			}
+		});
+
+		this.registerEvent(
+			this.app.vault.on('delete', (file) => {
+				if (file instanceof TFile) {
+					this.removeIndexedDocument(file.path);
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on('rename', (file, oldPath) => {
+				if (file instanceof TFile) {
+					this.removeIndexedDocument(oldPath);
+					// index new document
+					this.indexDocument(file);
+				}
+			})
+		);
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SettingTab(this.app, this));
 
@@ -66,19 +101,41 @@ export default class LocalRag extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async indexDocument(file: TFile) {
-		const content = await this.app.vault.read(file);
-		// send content to local server for indexing as base64
+	async removeIndexedDocument(documentName: string) {
 		requestUrl({
-			url: `${this.baseURL}/api/process_document`,
+			url: `${this.baseURL}/api/delete_document`,
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ document_name: file.name, document_data: btoa(content) })
+			body: JSON.stringify({ document_name: documentName })
+		}).then(() => {
+			new Notice(`Document "${documentName}" removed from index successfully.`);
+		}).catch((error) => {
+			new Notice(`Error removing document from index. ${error}`);
+		});
+	}
+
+	async indexDocument(file: TFile) {
+		const content = await this.app.vault.read(file);
+
+		new Notice(`Indexing document "${file.path}"...`);
+
+		const url = `${this.baseURL}/api/process_document`;
+
+		const docData = btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
+
+		requestUrl({
+			url,
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ document_name: file.path, document_data: docData })
 		}).then(() => {
 			new Notice(`Document "${file.name}" indexed successfully.`);
 		}).catch((error) => {
+			console.error('Indexing error:', error);
 			new Notice(`Error indexing document. ${error}`);
 		});
 	}
