@@ -1,8 +1,11 @@
-import { Editor, MarkdownView, Notice, Plugin, requestUrl, SuggestModal, MarkdownRenderer, Component, TFile } from 'obsidian';
+import { MarkdownView, Notice, Plugin, requestUrl, SuggestModal, MarkdownRenderer, Component, TFile, App } from 'obsidian';
 import { DEFAULT_SETTINGS, LocalRagSettings, SettingTab } from "./settings";
+import { LocalRagConfig } from 'local_rag_config';
 
 
 export default class LocalRag extends Plugin {
+	baseURL: string;
+	config: LocalRagConfig;
 	settings: LocalRagSettings;
 
 	async onload() {
@@ -16,35 +19,13 @@ export default class LocalRag extends Plugin {
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
+			id: 'search-local-rag',
+			name: 'Open Local RAG Search',
 			callback: () => {
-				new SearchModal(this.app).open();
+				new SearchModal(this.app, this.baseURL).open();
 			}
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				new Notice('Replacing selected content with data from local server with requestUrl()...');
-				const selection = editor.getSelection();
-				try {
-					const resp = await requestUrl({
-						url: 'http://localhost:8080/api/search',
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({ query: selection })
-					});
-					const data = resp.json;
-					editor.replaceSelection(data[0].data);
-				} catch (error) {
-					new Notice(`Error communicating with local server. ${error}`);
-				}
-			}
-		});
+
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
 			id: 'index-document',
@@ -76,44 +57,51 @@ export default class LocalRag extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<LocalRagSettings>);
+		this.config = LocalRagConfig.load(this.settings.configPath);
+		this.baseURL = `${this.config.extensions.host}:${this.config.port}`;
+		new Notice(`Local RAG Plugin loaded. Server at ${this.baseURL}`);
 	}
 
- 	async saveSettings() {
- 		await this.saveData(this.settings);
- 	}
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
 
- 	async indexDocument(file: TFile) {
- 		const content = await this.app.vault.read(file);
- 		// send content to local server for indexing as base64
- 		requestUrl({
- 			url: 'http://localhost:8080/api/process_document', // TODO: take that from settings later
- 			method: 'POST',
- 			headers: {
- 				'Content-Type': 'application/json'
- 			},
- 			body: JSON.stringify({ document_name: file.name, document_data: btoa(content) })
- 		}).then(() => {
- 			new Notice(`Document "${file.name}" indexed successfully.`);
- 		}).catch((error) => {
- 			new Notice(`Error indexing document. ${error}`);
- 		});
- 	}
+	async indexDocument(file: TFile) {
+		const content = await this.app.vault.read(file);
+		// send content to local server for indexing as base64
+		requestUrl({
+			url: `${this.baseURL}/api/process_document`,
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ document_name: file.name, document_data: btoa(content) })
+		}).then(() => {
+			new Notice(`Document "${file.name}" indexed successfully.`);
+		}).catch((error) => {
+			new Notice(`Error indexing document. ${error}`);
+		});
+	}
 }
 
 interface SearchResult {
- 	document_name: string;
- 	data: string;
- 	chunk_index: number;
- 	start_line: number;
- 	end_line: number;
+	document_name: string;
+	data: string;
+	chunk_index: number;
+	start_line: number;
+	end_line: number;
 }
 
 class SearchModal extends SuggestModal<SearchResult> {
+	constructor(app: App, private baseURL: string) {
+		super(app);
+	}
+
 	async getSuggestions(query: string): Promise<SearchResult[]> {
 		if (!query.trim()) return [];
 		try {
 			const resp = await requestUrl({
-				url: 'http://localhost:8080/api/search', // TODO: take that from settings later	
+				url: `${this.baseURL}/api/search`,
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -122,7 +110,7 @@ class SearchModal extends SuggestModal<SearchResult> {
 			});
 			return resp.json;
 		} catch (error) {
-			console.error('Search error:', error);
+			new Notice(`Error during search: ${error}`);
 			return [];
 		}
 	}
@@ -135,9 +123,9 @@ class SearchModal extends SuggestModal<SearchResult> {
 		MarkdownRenderer.render(this.app, item.data.substring(0, 100), el.querySelector('.suggestion-preview')!, '', new Component());
 	}
 
- 	async onChooseSuggestion(item: SearchResult) {
- 		// open that document
- 		const fileName = item.document_name.replace(/^\.\//, '');
- 		this.app.workspace.openLinkText(fileName, '', true);
- 	}
+	async onChooseSuggestion(item: SearchResult) {
+		// open that document
+		const fileName = item.document_name.replace(/^\.\//, '');
+		this.app.workspace.openLinkText(fileName, '', true);
+	}
 }
