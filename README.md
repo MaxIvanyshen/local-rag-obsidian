@@ -1,90 +1,125 @@
-# Obsidian Sample Plugin
+# Local RAG Plugin for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+An Obsidian plugin that enables Retrieval-Augmented Generation (RAG) locally using LLMs and vector databases. This plugin allows you to index your Obsidian notes and perform semantic search with AI-powered responses.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+> **Note**: This repository was created from the Obsidian sample plugin template. My commits start from bfaaa37 - any commits before that are from the original template.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Features
 
-## First time developing plugins?
+- **Document Indexing**: Index your Obsidian notes for semantic search
+- **Local Search**: Perform RAG-powered searches against your indexed content
+- **Configurable Embeddings**: Support for various embedding models (Ollama, OpenAI, etc.)
+- **Flexible Chunking**: Configurable text chunking strategies
+- **Vector Database**: Efficient storage and retrieval using vector databases
+- **Settings Integration**: Full Obsidian settings integration for configuration
 
-Quick starting guide for new plugin devs:
+## Prerequisites
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+- **Obsidian** (minimum version 0.15.0)
+- **Local RAG Server**: A running instance of the Local RAG backend server
+- **Node.js** (v16 or higher for development)
 
-## Releasing new releases
+## Installation
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### From Obsidian Community Plugins (Future)
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+Once published to the community plugin list:
 
-## Adding your plugin to the community plugin list
+1. Open Obsidian Settings
+2. Go to Community Plugins → Browse
+3. Search for "Local RAG"
+4. Install and enable the plugin
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Manual Installation
 
-## How to use
+1. Download the latest release from [GitHub Releases](https://github.com/MaxIvanyshen/local-rag-obsidian/releases)
+2. Extract the files to your vault: `VaultFolder/.obsidian/plugins/local-rag-obsidian/`
+3. Reload Obsidian
+4. Enable the plugin in Settings → Community Plugins
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## Setup
 
-## Manually installing the plugin
+### 1. Install Local RAG Server
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+You'll need to set up and run the Local RAG backend server. Refer to the [Local RAG project](https://github.com/MaxIvanyshen/local-rag) for installation instructions.
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+### 2. Configure the Plugin
 
-## Funding URL
+1. Open Obsidian Settings
+2. Navigate to the "Local RAG" plugin settings
+3. Set the path to your Local RAG configuration file (default: `~/.config/local_rag/config.yml`)
+4. Configure any exclude paths or tags if needed
 
-You can include funding URLs where people who use your plugin can financially support it.
+### 3. Start Indexing
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+1. Open any note in your vault
+2. Use the command palette (Ctrl/Cmd+P)
+3. Run "Local RAG: Index Document" to index the current note
+4. Or use "Local RAG: Open Local RAG Search" to search indexed content
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+## Configuration
+
+The plugin reads configuration from a YAML file (typically `~/.config/local_rag/config.yml`). Key settings include:
+
+- **Port**: Server port (default: 8080)
+- **Database Path**: Location of the vector database
+- **Embedder**: Embedding model configuration (Ollama, OpenAI, etc.)
+- **Chunker**: Text chunking strategy and size
+- **Search**: Search parameters (top_k results)
+
+## Usage
+
+### Indexing Documents
+
+- Use the command "Local RAG: Index Document" while viewing any note
+- The plugin sends the document content to your local RAG server for indexing
+
+### Searching
+
+- Use the command "Local RAG: Open Local RAG Search"
+- Type your query in the search modal
+- Select from the returned results to open the relevant document
+
+## Development
+
+### Prerequisites
+
+- Node.js 16+
+- npm or yarn
+
+### Setup
+
+```bash
+npm install
+npm run dev  # For development with watch mode
+npm run build  # For production build
+npm run lint  # To run ESLint
 ```
 
-If you have multiple URLs, you can also do:
+### Project Structure
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
 ```
+src/
+├── main.ts           # Main plugin file
+├── settings.ts       # Settings interface and UI
+├── local_rag_config.ts # Configuration file parsing
+└── styles.css        # Plugin styles
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+0-BSD License
+
+## Support
+
+- [GitHub Issues](https://github.com/MaxIvanyshen/local-rag-obsidian/issues)
+- [Obsidian Plugin Guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines)
 
 ## API Documentation
 
-See https://docs.obsidian.md
+- [Obsidian API](https://docs.obsidian.md)
+- [Local RAG Backend](https://github.com/MaxIvanyshen/local-rag)
