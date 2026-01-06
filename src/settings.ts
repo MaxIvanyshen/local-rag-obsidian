@@ -5,12 +5,14 @@ import os from "os";
 
 export interface LocalRagSettings {
 	configPath: string;
-	excludePaths?: string[];
-	excludeTags?: string[];
+	indexIntervalMinutes: number;
+	excludePaths: string[];
+	excludeTags: string[];
 }
 
 export const DEFAULT_SETTINGS: LocalRagSettings = {
 	configPath: path.join(os.homedir(), '.config', 'local_rag', 'config.yml'),
+	indexIntervalMinutes: 5,
 	excludePaths: [],
 	excludeTags: []
 }

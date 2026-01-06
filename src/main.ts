@@ -8,16 +8,58 @@ export default class LocalRag extends Plugin {
 	config: LocalRagConfig;
 	settings: LocalRagSettings;
 
+	toIndex: Set<string> = new Set();
+
+	isExcluded(file: TFile): boolean {
+		// check excludePaths
+		for (const path of this.settings.excludePaths || []) {
+			if (file.path.startsWith(path)) return true;
+		}
+
+		const cache = this.app.metadataCache.getFileCache(file);
+		const frontmatterTags = cache?.frontmatter?.tags.map((t: string) => t.startsWith('#') ? t : `#${t}`) || [];
+		const inlineTags = cache?.tags?.map(t => t.tag).map(t => t.startsWith('#') ? t : `#${t}`) || [];
+		const allTags = [...frontmatterTags, ...inlineTags];
+
+		for (const tag of this.settings.excludeTags || []) {
+			if (allTags.includes(tag)) return true;
+		}
+		return false;
+	}
+
 	async onload() {
 		new Notice('Loading Local RAG Plugin...');
 
 		await this.loadSettings();
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		// load documents to index
+		await this.loadData().then((data) => {
+			if (data && data instanceof Array) {
+				this.toIndex = new Set(data);
+				// filter out excluded documents
+				const filtered = new Set<string>();
+				for (const path of this.toIndex) {
+					const file = this.app.vault.getAbstractFileByPath(path);
+					if (file instanceof TFile && !this.isExcluded(file)) {
+						filtered.add(path);
+					}
+				}
+				this.toIndex = filtered;
+			}
 
-		// This adds a simple command that can be triggered anywhere
+			if (this.toIndex.size > 0) {
+				new Notice(`Loaded ${this.toIndex.size} documents to index from previous session.`);
+			}
+		});
+
+		this.registerInterval(window.setInterval(async () => {
+			if (this.toIndex.size > 0) {
+				new Notice(`Indexing ${this.toIndex.size} documents in queue...`);
+				this.toIndex = await this.batchIndexDocuments(this.toIndex);
+				this.saveData(this.toIndex);
+			}
+		}, this.settings.indexIntervalMinutes * 60 * 1000));
+
 		this.addCommand({
 			id: 'search-local-rag',
 			name: 'Open Local RAG Search',
@@ -26,14 +68,13 @@ export default class LocalRag extends Plugin {
 			}
 		});
 
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
 			id: 'index-document',
 			name: 'Index Document',
 			checkCallback: (checking: boolean) => {
 				// index the current document
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView && markdownView.file) {
+				if (markdownView && markdownView.file && !this.isExcluded(markdownView.file)) {
 					if (!checking) {
 						this.indexDocument(markdownView.file);
 					}
@@ -61,9 +102,9 @@ export default class LocalRag extends Plugin {
 		});
 
 		this.registerEvent(
-			this.app.vault.on('delete', (file) => {
-				if (file instanceof TFile) {
-					this.removeIndexedDocument(file.path);
+			this.app.vault.on('modify', (file) => {
+				if (file instanceof TFile && !this.isExcluded(file)) {
+					this.toIndex.add(file.path); // add to index queue
 				}
 			})
 		);
@@ -72,22 +113,29 @@ export default class LocalRag extends Plugin {
 			this.app.vault.on('rename', (file, oldPath) => {
 				if (file instanceof TFile) {
 					this.removeIndexedDocument(oldPath);
-					// index new document
-					this.indexDocument(file);
+					// index new document if not excluded
+					if (!this.isExcluded(file)) {
+						this.indexDocument(file);
+					}
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on('modify', (file) => {
+				if (file instanceof TFile && !this.isExcluded(file)) {
+					this.toIndex.add(file.path); // add to index queue
 				}
 			})
 		);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SettingTab(this.app, this));
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
 	}
 
 	onunload() {
 		new Notice('Unloading Local RAG Plugin...');
+		this.saveData(this.toIndex);
 	}
 
 	async loadSettings() {
@@ -117,13 +165,18 @@ export default class LocalRag extends Plugin {
 	}
 
 	async indexDocument(file: TFile) {
+		if (this.isExcluded(file)) {
+			new Notice(`Skipping indexing excluded document "${file.path}".`);
+			return;
+		}
+
 		const content = await this.app.vault.read(file);
 
 		new Notice(`Indexing document "${file.path}"...`);
 
 		const url = `${this.baseURL}/api/process_document`;
 
-		const docData = btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
+		const docData = btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
 
 		requestUrl({
 			url,
@@ -138,6 +191,42 @@ export default class LocalRag extends Plugin {
 			console.error('Indexing error:', error);
 			new Notice(`Error indexing document. ${error}`);
 		});
+	}
+
+	async batchIndexDocuments(filePaths: Set<string>): Promise<Set<string>> {
+		const files: TFile[] = [];
+		filePaths.forEach((filePath) => {
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (file instanceof TFile && !this.isExcluded(file)) {
+				files.push(file);
+			}
+		});
+
+		const documents = [];
+		for (const file of files) {
+			const content = await this.app.vault.read(file);
+			const docData = btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+			documents.push({ document_name: file.path, document_data: docData });
+		}
+
+		const url = `${this.baseURL}/api/batch_process_documents`;
+		try {
+			const resp = await requestUrl({
+				url,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ documents })
+			});
+			const remaining = resp.json.failed_documents as string[]; // assuming API returns array of remaining paths
+			const remainingSet = new Set(remaining);
+			return remainingSet;
+		} catch (error) {
+			console.error('Batch indexing error:', error);
+			new Notice(`Error batch indexing documents. ${error}`);
+			return filePaths; // return original set on error
+		}
 	}
 }
 
