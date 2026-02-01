@@ -7,10 +7,139 @@ If your plugin does not need CSS, delete this file.
 
 */
 
-.input {
-	border: 2px solid #4CAF50;
-	color: red !important;
-	padding: 10px;
-	font-size: 16px;
-	border-radius: 4px;
+.local-rag-search-modal {
+	padding: 0;
+}
+
+.local-rag-search-modal-root {
+	width: min(1200px, 92vw);
+	max-width: 1200px;
+}
+
+.local-rag-search-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.local-rag-search-row input {
+	flex: 1;
+	min-width: 360px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.local-rag-search-row button {
+	padding: 10px 14px;
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.local-rag-search-row button:hover {
+	background: var(--background-modifier-hover);
+}
+
+.local-rag-search-status {
+	color: var(--text-muted);
+	margin-bottom: 8px;
+}
+
+.local-rag-search-body {
+	display: grid;
+	grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.2fr);
+	gap: 12px;
+}
+
+.local-rag-result-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 60vh;
+	overflow: auto;
+}
+
+.local-rag-result {
+	text-align: left;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	border-radius: 10px;
+	padding: 10px 12px;
+	cursor: pointer;
+}
+
+.local-rag-result:hover,
+.local-rag-result.is-active {
+	background: var(--background-modifier-hover);
+	border-color: var(--text-accent);
+}
+
+.local-rag-result-title {
+	font-weight: 600;
+}
+
+.local-rag-result-header {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	align-items: baseline;
+}
+
+.local-rag-result-line {
+	color: var(--text-muted);
+	font-size: 0.85em;
+}
+
+.local-rag-result-preview {
+	color: var(--text-muted);
+	font-size: 0.9em;
+	margin-top: 6px;
+}
+
+.local-rag-search-preview {
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	border-radius: 10px;
+	padding: 12px;
+	max-height: 60vh;
+	overflow: auto;
+}
+
+.local-rag-search-preview.is-hidden {
+	display: none;
+}
+
+.local-rag-preview-header {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	align-items: baseline;
+	margin-bottom: 8px;
+}
+
+.local-rag-preview-title {
+	font-weight: 600;
+}
+
+.local-rag-preview-line {
+	color: var(--text-muted);
+	font-size: 0.85em;
+}
+
+.local-rag-preview-body {
+	color: var(--text-normal);
+	font-size: 0.95em;
+	line-height: 1.45;
+}
+
+@media (max-width: 800px) {
+	.local-rag-search-body {
+		grid-template-columns: 1fr;
+	}
 }

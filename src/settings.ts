@@ -8,13 +8,15 @@ export interface LocalRagSettings {
 	indexIntervalMinutes: number;
 	excludePaths: string[];
 	excludeTags: string[];
+	excludeExtensions: string[];
 }
 
 export const DEFAULT_SETTINGS: LocalRagSettings = {
 	configPath: path.join(os.homedir(), '.config', 'local_rag', 'config.yml'),
 	indexIntervalMinutes: 5,
 	excludePaths: [],
-	excludeTags: []
+	excludeTags: [],
+	excludeExtensions: [".jpeg", ".jpg", ".png", ".gif", ".mp4", ".mp3", ".exe", ".dll"],
 }
 
 export class SettingTab extends PluginSettingTab {
@@ -60,6 +62,17 @@ export class SettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.excludeTags?.join(', ') || '')
 				.onChange(async (value) => {
 					this.plugin.settings.excludeTags = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Exclude Extensions')
+			.setDesc('File extensions to exclude from indexing (comma-separated).')
+			.addText(text => text
+				.setPlaceholder('e.g., .md, .txt')
+				.setValue(this.plugin.settings.excludeExtensions?.join(', ') || '')
+				.onChange(async (value) => {
+					this.plugin.settings.excludeExtensions = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
 					await this.plugin.saveSettings();
 				}));
 	}
