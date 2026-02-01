@@ -417,9 +417,10 @@ class LocalRagSearchModal extends Modal {
 				// Set cursor to the start line after the file opens
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (view && view.editor) {
-					view.editor.setCursor({ line: item.start_line - 1 + 100, ch: 0 });
-					// Scroll the line into view
-					view.editor.scrollIntoView({ from: { line: item.start_line - 1, ch: 0 }, to: { line: item.start_line - 1, ch: 0 } });
+					const targetLine = item.start_line - 1;
+					view.editor.setCursor({ line: targetLine, ch: 0 });
+					// Scroll to center the line in the viewport
+					view.editor.scrollIntoView({ from: { line: targetLine, ch: 0 }, to: { line: targetLine, ch: 0 } }, true);
 				}
 				this.close();
 			});
